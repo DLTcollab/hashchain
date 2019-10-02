@@ -55,11 +55,17 @@ FBxCC4r4/u9oyBtuF3sets/MpX38yGPHkyL5rtaGB58=
 fdW9x8zM1ztLel4upwt2qW8x4EFw/WEfBOiXBiyEcuk=
 ```
 
+To verify if two hashes are in the same chain, the arguments are:
+```shell
+$ ./hashchain verify ALGORITHM QUERY ANCHOR [MAX_RANGE]
+```
+
 You can verify with the command:
 ```shell
 $ ./hashchain verify sha256 \
               FBxCC4r4/u9oyBtuF3sets/MpX38yGPHkyL5rtaGB58= \
-              fdW9x8zM1ztLel4upwt2qW8x4EFw/WEfBOiXBiyEcuk=
+              fdW9x8zM1ztLel4upwt2qW8x4EFw/WEfBOiXBiyEcuk= \
+              2
 success
 ```
 
