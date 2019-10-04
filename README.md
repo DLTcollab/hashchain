@@ -71,3 +71,18 @@ success
 
 The verify command writes "success" and returns 0 if the hashes verify, and
 writes "failure" and returns non-0 if they don't.
+
+### Use case: Document Attestation
+You can use these scripts to manipulate the PDF files. [exiftool](https://www.sno.phy.queensu.ca/~phil/exiftool/) and [openssl](https://www.openssl.org/) should be installed first in order to use these scripts.
+
+You can sign a pdf file with the command:
+```shell
+$ scripts/sign.sh PDF_FILE [SEED] [ALGO]
+```
+Note that `SEED` is necessary when initializing the first hash, and the default `ALGO`  is sha256 if not specified manually.
+
+To verify if two pdf files are in the same chain, you can use the command:
+```shell
+$ scripts/verify.sh PDF_QUERY PDF_ANCHOR [ALGO] [RANGE]
+```
+Note that `ALGO` is sha256 and `RANGE` is 10 by default.

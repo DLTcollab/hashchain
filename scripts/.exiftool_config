@@ -1,0 +1,6 @@
+%Image::ExifTool::UserDefined = (
+	'Image::ExifTool::PDF::Info' => {
+		Hash => { },
+	},
+);
+# end
