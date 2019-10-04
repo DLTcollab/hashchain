@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#define DEFAULT_RANGE 10
 
 /**
  * @brief Represents a hash chain.
@@ -25,7 +26,7 @@ struct hash_chain {
  * @param baselen Number of bytes in seed data.
  * @param type The hash algorithm to use.
  * @param chain_len Number of hashes to create.
- * @return A struct hash_chain filled with hashes.
+ * @returns A struct hash_chain filled with hashes.
  */
 struct hash_chain hash_chain_create(void *base,
                                     int baselen,
@@ -64,24 +65,37 @@ struct hash_chain hash_chain_create(void *base,
  * @param h Pointer to a hash.
  * @param tip Pointer to the "tip" hash.
  * @param hash Hash algorithm to use.
- * @param True if hash(h) == tip
+ * @param range Maximum test range.
+ * @returns True if hash(h) == tip in range of hashes
  */
-bool hash_chain_verify(const void *h, const void *tip, const EVP_MD *hash)
+bool hash_chain_verify(const void *h,
+                       const void *tip,
+                       const EVP_MD *hash,
+                       int range)
 {
     EVP_MD_CTX *ctx;
     int result;
     int digest_len = EVP_MD_size(hash);
     void *data = malloc(digest_len);
+    if (!data) {
+        fprintf(stderr, "error: Malloc failed\n");
+        return 0;
+    }
+    memcpy(data, h, digest_len);
 
-    ctx = EVP_MD_CTX_create();
-    EVP_DigestInit_ex(ctx, hash, NULL);
-    EVP_DigestUpdate(ctx, h, digest_len);
-    EVP_DigestFinal_ex(ctx, data, NULL);
-    EVP_MD_CTX_destroy(ctx);
+    while (range--) {
+        ctx = EVP_MD_CTX_create();
+        EVP_DigestInit_ex(ctx, hash, NULL);
+        EVP_DigestUpdate(ctx, data, digest_len);
+        EVP_DigestFinal_ex(ctx, data, NULL);
+        EVP_MD_CTX_destroy(ctx);
 
-    result = memcmp(data, tip, digest_len);
+        result = memcmp(data, tip, digest_len);
+        if (!result)
+            break;
+    }
+
     free(data);
-
     return result == 0;
 }
 
@@ -161,11 +175,12 @@ int cmd_verify(int argc, char **argv)
 {
     if (argc < 4) {
         fprintf(stderr, "error: too few args\n");
-        fprintf(stderr, "usage: %s ALGO QUERY ANCHOR\n", argv[0]);
+        fprintf(stderr, "usage: %s ALGO QUERY ANCHOR [MAX_RANGE]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
     const EVP_MD *hash = EVP_get_digestbyname(argv[1]);
+    const int range = (argc == 4) ? DEFAULT_RANGE : atoi(argv[4]);
     if (hash == NULL) {
         fprintf(stderr, "error: hash %s doesn't exist\n", argv[1]);
         return EXIT_FAILURE;
@@ -175,7 +190,7 @@ int cmd_verify(int argc, char **argv)
     void *qhash = base64_decode(argv[2], digest_len);
     void *thash = base64_decode(argv[3], digest_len);
 
-    bool res = hash_chain_verify(qhash, thash, hash);
+    bool res = hash_chain_verify(qhash, thash, hash, range);
     free(qhash);
     free(thash);
     if (res) {
