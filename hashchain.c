@@ -196,10 +196,9 @@ int cmd_verify(int argc, char **argv)
     if (res) {
         printf("success\n");
         return EXIT_SUCCESS;
-    } else {
-        printf("failure\n");
-        return EXIT_FAILURE;
     }
+    printf("failure\n");
+    return EXIT_FAILURE;
 }
 
 int main(int argc, char **argv)
