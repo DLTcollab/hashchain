@@ -76,6 +76,9 @@ bool hash_chain_verify(const void *h,
     EVP_MD_CTX *ctx;
     int result;
     int digest_len = EVP_MD_size(hash);
+    if (memcmp(h, tip, digest_len) == 0)
+        return true;
+
     void *data = malloc(digest_len);
     if (!data) {
         fprintf(stderr, "error: Malloc failed\n");
