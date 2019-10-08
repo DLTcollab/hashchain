@@ -82,7 +82,7 @@ bool hash_chain_verify(const void *h,
     void *data = malloc(digest_len);
     if (!data) {
         fprintf(stderr, "error: Malloc failed\n");
-        return 0;
+        return false;
     }
     memcpy(data, h, digest_len);
 
