@@ -1,4 +1,9 @@
-#!/bin/sh
+#!/bin/bash
+
+if [ "${1}" == "-h" ]; then
+    echo -e "Usage: \n\tscripts/sign.sh file seed [algo]"
+    exit 0
+fi
 
 # Check if binaries exist
 if ! [ -x "hashchain" ]; then
