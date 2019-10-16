@@ -81,8 +81,9 @@ $ scripts/sign.sh PDF_FILE [SEED] [ALGO]
 ```
 Note that `SEED` is necessary when initializing the first hash, and the default `ALGO`  is sha256 if not specified manually.
 
-To verify if two pdf files are in the same chain, you can use the command:
+To verify if the given inputs are in the same chain, you can use the command:
 ```shell
-$ scripts/verify.sh PDF_QUERY PDF_ANCHOR [ALGO] [RANGE]
+$ scripts/verify.sh INPUT_PDF ANCHOR [ALGO] [RANGE]
 ```
-Note that `ALGO` is sha256 and `RANGE` is 10 by default.
+Note that `ALGO` is sha256 and `RANGE` is 10 by default. 
+`INPUT_PDF` and `ANCHOR` can be either base64 encoded hash or pdf file.
