@@ -30,10 +30,18 @@ To create a hash chain, the arguments are:
 ```shell
 $ ./hashchain create ALGORITHM LENGTH SEED
 ```
+or 
+```shell
+$ ./hashchain create ALGORITHM INDEX SIZE SEED
+```
 
 Simple example:
 ```shell
 $ ./hashchain create sha256 10 "my secret password"
+```
+or equivalently,
+```shell
+$ ./hashchain create sha256 1 10 "my secret password"
 ```
 
 Alternatively, use built-in configurations:

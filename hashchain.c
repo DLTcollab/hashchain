@@ -21,25 +21,45 @@ struct hash_chain {
 };
 
 /**
+ * @brief Print a hash chain into file f.
+ * @param chain The chain to print.
+ * @param f The file to write to.
+ */
+void hash_chain_print(struct hash_chain chain, FILE *f)
+{
+    BIO *out, *b64, *bio;
+    b64 = BIO_new(BIO_f_base64());
+    out = BIO_new_fp(f, BIO_NOCLOSE);
+    bio = BIO_push(b64, out);
+
+    BIO_write(bio, chain.data, chain.digest_size);
+    BIO_flush(bio);
+
+    BIO_free_all(bio);
+}
+
+/**
  * @brief Generate and return a hash chain.
  * @param base Pointer to seed data for first hash.
  * @param baselen Number of bytes in seed data.
  * @param type The hash algorithm to use.
- * @param chain_len Number of hashes to create.
- * @returns A struct hash_chain filled with hashes.
+ * @param chain_index Index of hashes to create.
+ * @param chain_size  Size of hashes from index to create.
+ * @returns A struct hash_chain with the last hash.
  */
 struct hash_chain hash_chain_create(void *base,
                                     int baselen,
                                     const EVP_MD *type,
-                                    int chain_len)
+                                    int chain_index,
+                                    int chain_size)
 {
     EVP_MD_CTX *ctx;
     struct hash_chain output;
 
     // Allocate space for our hash chain.
     output.digest_size = EVP_MD_size(type);
-    output.chain_length = chain_len;
-    output.data = calloc(output.chain_length, output.digest_size);
+    output.chain_length = 1;
+    output.data = malloc(output.digest_size);
 
     // Hash the base data.
     ctx = EVP_MD_CTX_create();
@@ -47,12 +67,20 @@ struct hash_chain hash_chain_create(void *base,
     EVP_DigestUpdate(ctx, base, baselen);
     EVP_DigestFinal_ex(ctx, output.data, NULL);
 
-    // For each remaining item in the chain, hash the previous digest.
-    for (int idx = 1; idx < output.chain_length; idx++) {
+    /* For each remaining item in the chain, hash the previous digest.
+     * We don't need the hash before the index
+     */
+    for (int idx = 1; idx < chain_index; idx++) {
         EVP_DigestInit_ex(ctx, type, NULL);
-        EVP_DigestUpdate(ctx, output.data + (idx - 1) * output.digest_size,
-                         output.digest_size);
-        EVP_DigestFinal_ex(ctx, output.data + idx * output.digest_size, NULL);
+        EVP_DigestUpdate(ctx, output.data, output.digest_size);
+        EVP_DigestFinal_ex(ctx, output.data, NULL);
+    }
+
+    for (int idx = 1; idx <= chain_size; idx++) {
+        hash_chain_print(output, stdout);
+        EVP_DigestInit_ex(ctx, type, NULL);
+        EVP_DigestUpdate(ctx, output.data, output.digest_size);
+        EVP_DigestFinal_ex(ctx, output.data, NULL);
     }
 
     // Cleanup and return the chain.
@@ -86,40 +114,20 @@ bool hash_chain_verify(const void *h,
     }
     memcpy(data, h, digest_len);
 
+    ctx = EVP_MD_CTX_create();
     while (range--) {
-        ctx = EVP_MD_CTX_create();
         EVP_DigestInit_ex(ctx, hash, NULL);
         EVP_DigestUpdate(ctx, data, digest_len);
         EVP_DigestFinal_ex(ctx, data, NULL);
-        EVP_MD_CTX_destroy(ctx);
 
         result = memcmp(data, tip, digest_len);
         if (!result)
             break;
     }
 
+    EVP_MD_CTX_destroy(ctx);
     free(data);
     return result == 0;
-}
-
-/**
- * @brief Print a hash chain into file f.
- * @param chain The chain to print.
- * @param f The file to write to.
- */
-void hash_chain_print(struct hash_chain chain, FILE *f)
-{
-    BIO *out, *b64, *bio;
-    b64 = BIO_new(BIO_f_base64());
-    out = BIO_new_fp(f, BIO_NOCLOSE);
-    bio = BIO_push(b64, out);
-
-    for (int i = 0; i < chain.chain_length; i++) {
-        BIO_write(bio, chain.data + i * chain.digest_size, chain.digest_size);
-        BIO_flush(bio);
-    }
-
-    BIO_free_all(bio);
 }
 
 /**
@@ -147,7 +155,8 @@ int cmd_create(int argc, char **argv)
 {
     if (argc < 4) {
         fprintf(stderr, "error: too few args\n");
-        fprintf(stderr, "usage: %s HASH LENGTH BASE\n", argv[0]);
+        fprintf(stderr, "usage: %s ALGORITHM INDEX SIZE SEED\n", argv[0]);
+        fprintf(stderr, "       %s ALGORITHM LENGTH SEED\n", argv[0]);
         return EXIT_FAILURE;
     }
 
@@ -157,16 +166,36 @@ int cmd_create(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    int length;
-    if (sscanf(argv[2], "%d", &length) != 1) {
-        fprintf(stderr, "error: can't convert %s to integer\n", argv[2]);
+    if (argc == 5) {
+        int index;
+        if (sscanf(argv[2], "%d", &index) != 1) {
+            fprintf(stderr, "error: can't convert %s to integer\n", argv[2]);
+            return EXIT_FAILURE;
+        }
+
+        int size;
+        if (sscanf(argv[3], "%d", &size) != 1) {
+            fprintf(stderr, "error: can't convert %s to integer\n", argv[2]);
+            return EXIT_FAILURE;
+        }
+
+        struct hash_chain chain =
+            hash_chain_create(argv[4], strlen(argv[4]), hash, index, size);
+        free(chain.data);
+    } else if (argc == 4) {
+        int length;
+        if (sscanf(argv[2], "%d", &length) != 1) {
+            fprintf(stderr, "error: can't convert %s to integer\n", argv[2]);
+            return EXIT_FAILURE;
+        }
+        struct hash_chain chain =
+            hash_chain_create(argv[3], strlen(argv[3]), hash, 0, length);
+        free(chain.data);
+    } else {
+        fprintf(stderr, "usage: %s ALGORITHM INDEX SIZE SEED\n", argv[0]);
+        fprintf(stderr, "       %s ALGORITHM LENGTH SEED\n", argv[0]);
         return EXIT_FAILURE;
     }
-
-    struct hash_chain chain =
-        hash_chain_create(argv[3], strlen(argv[3]), hash, length);
-    hash_chain_print(chain, stdout);
-    free(chain.data);
 
     return EXIT_SUCCESS;
 }
