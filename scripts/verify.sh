@@ -37,4 +37,4 @@ fi
 [ -z ${3} ] && ALGO="sha256" || ALGO="${3}"
 [ -z ${4} ] && RANGE="10" || RANGE="${4}"
 
-./hashchain verify "${ALGO}" "${QUERY}" "${ANCHOR}" "${RANGE}"
+./hashchain verify -a "${ALGO}" -q "${QUERY}" -n "${ANCHOR}" -r "${RANGE}"

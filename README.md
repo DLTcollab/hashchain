@@ -28,20 +28,20 @@ $ make
 
 To create a hash chain, the arguments are:
 ```shell
-$ ./hashchain create ALGORITHM LENGTH SEED
+$ ./hashchain create -a ALGORITHM -l LENGTH SEED
 ```
 or 
 ```shell
-$ ./hashchain create ALGORITHM INDEX SIZE SEED
+$ ./hashchain create -a ALGORITHM -i INDEX -s SIZE SEED
 ```
 
 Simple example:
 ```shell
-$ ./hashchain create sha256 10 "my secret password"
+$ ./hashchain create -a sha256 -l 10 "my secret password"
 ```
 or equivalently,
 ```shell
-$ ./hashchain create sha256 1 10 "my secret password"
+$ ./hashchain create -a sha256 -i 1 -s 10 "my secret password"
 ```
 
 Alternatively, use built-in configurations:
@@ -65,15 +65,15 @@ fdW9x8zM1ztLel4upwt2qW8x4EFw/WEfBOiXBiyEcuk=
 
 To verify if two hashes are in the same chain, the arguments are:
 ```shell
-$ ./hashchain verify ALGORITHM QUERY ANCHOR [MAX_RANGE]
+$ ./hashchain verify -a ALGORITHM -q QUERY -n ANCHOR [-r MAX_RANGE]
 ```
 
 You can verify with the command:
 ```shell
-$ ./hashchain verify sha256 \
-              FBxCC4r4/u9oyBtuF3sets/MpX38yGPHkyL5rtaGB58= \
-              fdW9x8zM1ztLel4upwt2qW8x4EFw/WEfBOiXBiyEcuk= \
-              2
+$ ./hashchain verify -a sha256 \
+              -q FBxCC4r4/u9oyBtuF3sets/MpX38yGPHkyL5rtaGB58= \
+              -n fdW9x8zM1ztLel4upwt2qW8x4EFw/WEfBOiXBiyEcuk= \
+              -r 2
 success
 ```
 

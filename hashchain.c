@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #define DEFAULT_RANGE 10
 
 /**
@@ -70,14 +71,9 @@ struct hash_chain hash_chain_create(void *base,
     /* For each remaining item in the chain, hash the previous digest.
      * We don't need the hash before the index
      */
-    for (int idx = 1; idx < chain_index; idx++) {
-        EVP_DigestInit_ex(ctx, type, NULL);
-        EVP_DigestUpdate(ctx, output.data, output.digest_size);
-        EVP_DigestFinal_ex(ctx, output.data, NULL);
-    }
-
-    for (int idx = 1; idx <= chain_size; idx++) {
-        hash_chain_print(output, stdout);
+    for (int idx = 1; idx <= chain_index + chain_size; idx++) {
+        if (idx > chain_index)
+            hash_chain_print(output, stdout);
         EVP_DigestInit_ex(ctx, type, NULL);
         EVP_DigestUpdate(ctx, output.data, output.digest_size);
         EVP_DigestFinal_ex(ctx, output.data, NULL);
@@ -153,51 +149,66 @@ void *base64_decode(char *str, int explen)
  */
 int cmd_create(int argc, char **argv)
 {
-    if (argc < 4) {
-        fprintf(stderr, "error: too few args\n");
-        fprintf(stderr, "usage: %s ALGORITHM INDEX SIZE SEED\n", argv[0]);
-        fprintf(stderr, "       %s ALGORITHM LENGTH SEED\n", argv[0]);
-        return EXIT_FAILURE;
+    char algo[16];
+    char errarg[64];
+    int flag = 0;
+    int errno = 0;
+    int index = 0;
+    int opt;
+    int size;
+    while ((opt = getopt(argc, argv, "a:i:s:l:")) != -1) {
+        switch (opt) {
+        case 'a':
+            strncpy(algo, optarg, 16);
+            break;
+        case 'i':
+            flag ^= 1;
+            errno = 2 * (sscanf(optarg, "%d", &index) != 1);
+            break;
+        case 's':
+            flag ^= 2;
+            errno = 2 * (sscanf(optarg, "%d", &size) != 1);
+            break;
+        case 'l':
+            flag ^= 3;
+            errno = 2 * (sscanf(optarg, "%d", &size) != 1);
+            break;
+        default:
+            break;
+        }
+        if (errno) {
+            strncpy(errarg, optarg, 64);
+            goto fail;
+        }
+    }
+    if (optind >= argc || flag != 3) {
+        errno = 1;
+        goto fail;
     }
 
-    const EVP_MD *hash = EVP_get_digestbyname(argv[1]);
+    const EVP_MD *hash = EVP_get_digestbyname(algo);
     if (hash == NULL) {
-        fprintf(stderr, "error: hash %s doesn't exist\n", argv[1]);
-        return EXIT_FAILURE;
+        errno = 3;
+        goto fail;
     }
 
-    if (argc == 5) {
-        int index;
-        if (sscanf(argv[2], "%d", &index) != 1) {
-            fprintf(stderr, "error: can't convert %s to integer\n", argv[2]);
-            return EXIT_FAILURE;
-        }
-
-        int size;
-        if (sscanf(argv[3], "%d", &size) != 1) {
-            fprintf(stderr, "error: can't convert %s to integer\n", argv[2]);
-            return EXIT_FAILURE;
-        }
-
-        struct hash_chain chain =
-            hash_chain_create(argv[4], strlen(argv[4]), hash, index, size);
-        free(chain.data);
-    } else if (argc == 4) {
-        int length;
-        if (sscanf(argv[2], "%d", &length) != 1) {
-            fprintf(stderr, "error: can't convert %s to integer\n", argv[2]);
-            return EXIT_FAILURE;
-        }
-        struct hash_chain chain =
-            hash_chain_create(argv[3], strlen(argv[3]), hash, 0, length);
-        free(chain.data);
-    } else {
-        fprintf(stderr, "usage: %s ALGORITHM INDEX SIZE SEED\n", argv[0]);
-        fprintf(stderr, "       %s ALGORITHM LENGTH SEED\n", argv[0]);
-        return EXIT_FAILURE;
-    }
+    struct hash_chain chain = hash_chain_create(
+        argv[optind], strlen(argv[optind]), hash, index, size);
+    free(chain.data);
 
     return EXIT_SUCCESS;
+
+fail:
+    if (errno == 1) {
+        fprintf(stderr, "usage: %s -a ALGORITHM -i INDEX -s SIZE SEED\n",
+                argv[0]);
+        fprintf(stderr, "       %s -a ALGORITHM -l LENGTH SEED\n", argv[0]);
+    } else if (errno == 2) {
+        fprintf(stderr, "error: can't convert %s to integer\n", errarg);
+    } else if (errno == 3) {
+        fprintf(stderr, "error: hash %s doesn't exist\n", algo);
+    }
+    return EXIT_FAILURE;
 }
 
 /**
@@ -205,22 +216,45 @@ int cmd_create(int argc, char **argv)
  */
 int cmd_verify(int argc, char **argv)
 {
-    if (argc < 4) {
+    char algo[16];
+    char query[128];
+    char anchor[128];
+    char errarg[128];
+    int errno = 0;
+    int opt;
+    int range = DEFAULT_RANGE;
+    while ((opt = getopt(argc, argv, "a:q:n:r:")) != -1) {
+        switch (opt) {
+        case 'a':
+            strncpy(algo, optarg, 64);
+            break;
+        case 'q':
+            strncpy(query, optarg, 64);
+            break;
+        case 'n':
+            strncpy(anchor, optarg, 64);
+            break;
+        case 'r':
+            range = atoi(optarg);
+            break;
+        }
+    }
+    if (optind < 4) {
         fprintf(stderr, "error: too few args\n");
-        fprintf(stderr, "usage: %s ALGO QUERY ANCHOR [MAX_RANGE]\n", argv[0]);
+        fprintf(stderr, "usage: %s -a ALGO -q QUERY -n ANCHOR [-r MAX_RANGE]\n",
+                argv[0]);
         return EXIT_FAILURE;
     }
 
-    const EVP_MD *hash = EVP_get_digestbyname(argv[1]);
-    const int range = (argc == 4) ? DEFAULT_RANGE : atoi(argv[4]);
+    const EVP_MD *hash = EVP_get_digestbyname(algo);
     if (hash == NULL) {
-        fprintf(stderr, "error: hash %s doesn't exist\n", argv[1]);
+        fprintf(stderr, "error: hash %s doesn't exist\n", algo);
         return EXIT_FAILURE;
     }
 
     int digest_len = EVP_MD_size(hash);
-    void *qhash = base64_decode(argv[2], digest_len);
-    void *thash = base64_decode(argv[3], digest_len);
+    void *qhash = base64_decode(query, digest_len);
+    void *thash = base64_decode(anchor, digest_len);
 
     bool res = hash_chain_verify(qhash, thash, hash, range);
     free(qhash);
