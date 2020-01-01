@@ -38,7 +38,7 @@ if [ -z "${HASH}" ]; then
         echo "Please specify a seed"
         exit 1
     fi
-    NEW_HASH=$(./hashchain create "${ALGO}" 1 "${SEED}")
+    NEW_HASH=$(./hashchain create -a "${ALGO}" -l 1 "${SEED}")
     echo "New hash: ${NEW_HASH}"
 else 
     NEW_HASH=$(echo -n "${HASH}" | \
