@@ -6,8 +6,8 @@ if [ "${1}" == "-h" ]; then
 fi
 
 # Check if binaries exist
-if ! [ -x "hashchain" ]; then
-    echo "hashchain not found, execute make first"
+if ! [ -x "target/release/hashchain" ]; then
+    echo "hashchain not found, execute \"cargo build --release\" first"
     exit 1
 fi
 
@@ -21,6 +21,11 @@ if ! [ -x "$(command -v exiftool)" ]; then
     exit 1
 fi
 
+if ! [ -x "$(command -v b3sum)" ]; then
+    echo "Install b3sum first"
+    exit 1
+fi
+
 # Variable initialization from argument
 FILE="${1}"
 CONFIG="scripts/.exiftool_config"
@@ -28,8 +33,9 @@ if ! [ -f "${CONFIG}" ]; then
     echo "Config file not found"
     exit 1
 fi
-[ -z ${3} ] && ALGO="sha256" || ALGO="${3}"
+[ -z ${3} ] && ALGO="blake3" || ALGO="${3}"
 HASH=$(exiftool -config "${CONFIG}" -s -s -s -Hash "${FILE}") || exit 1
+echo $HASH
 
 # Generate hash 
 if [ -z "${HASH}" ]; then
@@ -38,13 +44,20 @@ if [ -z "${HASH}" ]; then
         echo "Please specify a seed"
         exit 1
     fi
-    NEW_HASH=$(./hashchain create -a "${ALGO}" -l 1 "${SEED}")
+    NEW_HASH=$(target/release/hashchain create -a "${ALGO}" -s "${SEED}")
     echo "New hash: ${NEW_HASH}"
 else 
-    NEW_HASH=$(echo -n "${HASH}" | \
-            openssl base64 -d -A | \
-            openssl dgst "-${ALGO}" -binary | \
-            openssl base64)
+    if [ "${ALGO}" == "blake3" ]; then 
+        NEW_HASH=$(echo -n "${HASH}" | \
+                openssl base64 -d -A | \
+                b3sum --raw | \
+                openssl base64)
+    else
+        NEW_HASH=$(echo -n "${HASH}" | \
+                openssl base64 -d -A | \
+                openssl dgst "-${ALGO}" -binary | \
+                openssl base64)
+    fi
     echo "New hash: ${NEW_HASH}"
 fi
 

@@ -1,18 +1,26 @@
 #!/bin/bash
 
-if [ "${1}" == "-h" ]; then
+print_usage() {
     echo -e "Usage: \n\tscripts/verify.sh input_pdf anchor [algo] [range]"
     exit 0
+}
+
+if [ "${1}" == "-h" ]; then
+    print_usage
 fi
 
-if ! [ -x "hashchain" ]; then
-    echo "hashchain not found, execute make first"
+if ! [ -x "target/release/hashchain" ]; then
+    echo "hashchain not found, execute \"cargo build --release\" first"
     exit 1
 fi
 
 if ! [ -x "$(command -v exiftool)" ]; then
     echo "Install exiftool first"
     exit 1
+fi
+
+if [ "${1}" == "" ] || [ "${2}" == "" ]; then
+    print_usage
 fi
 
 CONFIG="scripts/.exiftool_config"
@@ -34,7 +42,7 @@ else
     ANCHOR="${2}"
 fi
 
-[ -z ${3} ] && ALGO="sha256" || ALGO="${3}"
+[ -z ${3} ] && ALGO="blake3" || ALGO="${3}"
 [ -z ${4} ] && RANGE="10" || RANGE="${4}"
 
-./hashchain verify -a "${ALGO}" -q "${QUERY}" -n "${ANCHOR}" -r "${RANGE}"
+target/release/hashchain verify -a "${ALGO}" -q "${QUERY}" -n "${ANCHOR}" -r "${RANGE}"
