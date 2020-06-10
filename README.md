@@ -21,77 +21,75 @@ previous hash as authentication of your identity.
 
 ## Build instructions
 ```shell
-$ make
+$ cargo build --release
 ```
+
+### Supported hash algorithms
+
+* BLAKE3 (default)
+* SHA-1
+* SHA-224
+* SHA-256
+* SHA-384
+* SHA-512
 
 ### Usage
 
 To create a hash chain, the arguments are:
 ```shell
-$ ./hashchain create -a ALGORITHM -l LENGTH SEED
-```
-or 
-```shell
-$ ./hashchain create -a ALGORITHM -i INDEX -s SIZE SEED
+$ target/release/hashchain create --algorithm ALGO \
+                                  --index BASE_INDEX \
+                                  --length LENGTH \
+                                  --seed SEED
 ```
 
 Simple example:
 ```shell
-$ ./hashchain create -a sha256 -l 10 "my secret password"
+$ target/release/hashchain create --algorithm blake3 \
+                                  --index 0 \
+                                  --length 2 \
+                                  --seed "my secret password"
 ```
-or equivalently,
-```shell
-$ ./hashchain create -a sha256 -i 1 -s 10 "my secret password"
-```
-
-Alternatively, use built-in configurations:
-```shell
-$ make gen
-```
-
-It randomly generates a chain of length 10 using sha256 and saves it to the
-file `chains`.
-
-Each line of the output is base64 encoded data which hashes to the next line.
 
 ### Verify
 
 Say that you have the last two hashes from the previous example:
 ```shell
-$ tail -n 2 chains
-FBxCC4r4/u9oyBtuF3sets/MpX38yGPHkyL5rtaGB58=
-fdW9x8zM1ztLel4upwt2qW8x4EFw/WEfBOiXBiyEcuk=
+s8H9Ux1DgaDBGluPBM7gtzvU5VUrTNKxYL5byEoJC/4=
+sinEkbvTB5wK0Deo9rVpEBgZChbqrO91UXT8eRNVDkQ=
 ```
 
 To verify if two hashes are in the same chain, the arguments are:
 ```shell
-$ ./hashchain verify -a ALGORITHM -q QUERY -n ANCHOR [-r MAX_RANGE]
+$ target/release/hashchain verify --algorithm ALGO \
+                                  --query QUERY \
+                                  --anchor ANCHOR \
+                                  --range MAX_RANGE 
 ```
 
 You can verify with the command:
 ```shell
-$ ./hashchain verify -a sha256 \
-              -q FBxCC4r4/u9oyBtuF3sets/MpX38yGPHkyL5rtaGB58= \
-              -n fdW9x8zM1ztLel4upwt2qW8x4EFw/WEfBOiXBiyEcuk= \
-              -r 2
-success
+$ target/release/hashchain verify --algorithm blake3 \
+                                  --query s8H9Ux1DgaDBGluPBM7gtzvU5VUrTNKxYL5byEoJC/4= \
+                                  --anchor sinEkbvTB5wK0Deo9rVpEBgZChbqrO91UXT8eRNVDkQ= \
+                                  --range 10
 ```
 
 The verify command writes "success" and returns 0 if the hashes verify, and
 writes "failure" and returns non-0 if they don't.
 
 ### Use case: Document Attestation
-You can use these scripts to manipulate the PDF files. [exiftool](https://www.sno.phy.queensu.ca/~phil/exiftool/) and [openssl](https://www.openssl.org/) should be installed first in order to use these scripts.
+You can use these scripts to manipulate the PDF files. [exiftool](https://www.sno.phy.queensu.ca/~phil/exiftool/), [openssl](https://www.openssl.org/) and [b3sum](https://github.com/BLAKE3-team/BLAKE3/tree/master/b3sum) should be installed first in order to use these scripts
 
 You can sign a pdf file with the command:
 ```shell
 $ scripts/sign.sh PDF_FILE [SEED] [ALGO]
 ```
-Note that `SEED` is necessary when initializing the first hash, and the default `ALGO`  is sha256 if not specified manually.
+Note that `SEED` is necessary when initializing the first hash, and the default `ALGO`  is blake3 if not specified manually.
 
 To verify if the given inputs are in the same chain, you can use the command:
 ```shell
 $ scripts/verify.sh INPUT_PDF ANCHOR [ALGO] [RANGE]
 ```
-Note that `ALGO` is sha256 and `RANGE` is 10 by default. 
+Note that `ALGO` is blake3 and `RANGE` is 10 by default. 
 `INPUT_PDF` and `ANCHOR` can be either base64 encoded hash or pdf file.
